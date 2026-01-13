@@ -1,0 +1,8 @@
+# Vector database (runtime only)
+engine_vector_db/
+*.faiss
+*.pkl
+
+# Python junk
+__pycache__/
+.venv/
