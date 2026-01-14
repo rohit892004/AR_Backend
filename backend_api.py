@@ -5,15 +5,17 @@ from pydantic import BaseModel
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.llms import Ollama
-from langchain_community.chains import RetrievalQA
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains import create_retrieval_chain
 
 from create_vector_db import create_vector_db
 
 # ---------------- CONFIG ----------------
-VECTOR_DB_PATH = "/data/engine_vector_db"   # Render disk mount
-PDF_PATH = "engine_knowledge.pdf"
+VECTOR_DB_PATH = "/data/engine_vector_db"
 
-# --------------------------------------
+# ---------------- APP ----------------
 app = FastAPI(
     title="AR Engine AI Backend",
     version="1.0"
@@ -23,39 +25,52 @@ app = FastAPI(
 class QueryRequest(BaseModel):
     query: str
 
-# ---------------- STARTUP EVENT ----------------
+# ---------------- STARTUP ----------------
 @app.on_event("startup")
-def startup_event():
+def startup():
     if not os.path.exists(VECTOR_DB_PATH):
-        print("⚠️ Vector DB not found. Creating now...")
+        print("⚠️ Vector DB not found. Creating...")
         create_vector_db(VECTOR_DB_PATH)
     else:
-        print("✅ Vector DB already exists.")
+        print("✅ Vector DB found")
 
 # ---------------- LOAD VECTOR DB ----------------
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
-db = FAISS.load_local(
+vectorstore = FAISS.load_local(
     VECTOR_DB_PATH,
     embeddings,
     allow_dangerous_deserialization=True
 )
 
-# ---------------- LLM (OLLAMA) ----------------
+retriever = vectorstore.as_retriever()
+
+# ---------------- LLM ----------------
 llm = Ollama(model="llama3")
 
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    retriever=db.as_retriever(),
-    return_source_documents=False
+# ---------------- PROMPT ----------------
+prompt = ChatPromptTemplate.from_template(
+    """
+You are a helpful mechanical engine expert.
+Answer the question ONLY using the given context.
+
+<context>
+{context}
+</context>
+
+Question: {input}
+"""
 )
 
-# ---------------- API ENDPOINT ----------------
+document_chain = create_stuff_documents_chain(llm, prompt)
+qa_chain = create_retrieval_chain(retriever, document_chain)
+
+# ---------------- API ----------------
 @app.post("/ask")
 def ask_engine(data: QueryRequest):
-    answer = qa_chain.run(data.query)
+    result = qa_chain.invoke({"input": data.query})
     return {
-        "answer": answer
+        "answer": result["answer"]
     }

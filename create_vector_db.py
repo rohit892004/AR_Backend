@@ -5,25 +5,21 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 
-def create_vector_db(save_path: str):
-    print("Creating Vector DB...")
-
+def create_vector_db(path):
     loader = PyPDFLoader("engine_knowledge.pdf")
-    documents = loader.load()
+    docs = loader.load()
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50
     )
-    chunks = splitter.split_documents(documents)
+
+    chunks = splitter.split_documents(docs)
 
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
 
     db = FAISS.from_documents(chunks, embeddings)
-
-    os.makedirs(save_path, exist_ok=True)
-    db.save_local(save_path)
-
-    print("Vector DB created at:", save_path)
+    os.makedirs(path, exist_ok=True)
+    db.save_local(path)
