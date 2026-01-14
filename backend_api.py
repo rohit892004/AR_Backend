@@ -16,10 +16,7 @@ from create_vector_db import create_vector_db
 VECTOR_DB_PATH = "/data/engine_vector_db"
 
 # ---------------- APP ----------------
-app = FastAPI(
-    title="AR Engine AI Backend",
-    version="1.0"
-)
+app = FastAPI(title="AR Engine AI Backend")
 
 # ---------------- REQUEST MODEL ----------------
 class QueryRequest(BaseModel):
@@ -29,12 +26,10 @@ class QueryRequest(BaseModel):
 @app.on_event("startup")
 def startup():
     if not os.path.exists(VECTOR_DB_PATH):
-        print("⚠️ Vector DB not found. Creating...")
+        print("Creating Vector DB...")
         create_vector_db(VECTOR_DB_PATH)
-    else:
-        print("✅ Vector DB found")
 
-# ---------------- LOAD VECTOR DB ----------------
+# ---------------- VECTOR STORE ----------------
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
@@ -53,8 +48,7 @@ llm = Ollama(model="llama3")
 # ---------------- PROMPT ----------------
 prompt = ChatPromptTemplate.from_template(
     """
-You are a helpful mechanical engine expert.
-Answer the question ONLY using the given context.
+Answer the question ONLY using the context below.
 
 <context>
 {context}
@@ -64,13 +58,11 @@ Question: {input}
 """
 )
 
-document_chain = create_stuff_documents_chain(llm, prompt)
-qa_chain = create_retrieval_chain(retriever, document_chain)
+doc_chain = create_stuff_documents_chain(llm, prompt)
+qa_chain = create_retrieval_chain(retriever, doc_chain)
 
 # ---------------- API ----------------
 @app.post("/ask")
 def ask_engine(data: QueryRequest):
     result = qa_chain.invoke({"input": data.query})
-    return {
-        "answer": result["answer"]
-    }
+    return {"answer": result["answer"]}
