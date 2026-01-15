@@ -1,8 +1,14 @@
-# Vector database (runtime only)
-engine_vector_db/
-*.faiss
-*.pkl
+# Virtual Environment
+venv/
+.env
 
-# Python junk
+# Vector DB (BIG FILES)
+engine_vector_db/
+
+# Python cache
 __pycache__/
-.venv/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
