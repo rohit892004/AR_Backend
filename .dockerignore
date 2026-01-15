@@ -1,0 +1,5 @@
+engine_vector_db
+venv
+__pycache__
+.env
+.git
